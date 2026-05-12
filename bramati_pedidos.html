@@ -683,24 +683,63 @@ function onBusqueda(q) {
 function procesarCodigo(codigo) {
   const art = catalogo.find(a => String(a.codigo) === String(codigo));
   const el = document.getElementById('scan-result');
-  el.style.display = 'block';
   document.getElementById('search-results').innerHTML = '';
 
   if (art) {
-    addToPedido(art);
-    el.className = 'scan-result';
-    el.innerHTML = `
-      <div class="scan-result-name">✅ ${art.nombre}</div>
-      <div class="scan-result-meta">${art.proveedor} · Código: ${codigo}</div>`;
+    showModalCantidad(art);
   } else {
+    el.style.display = 'block';
     el.className = 'scan-result error';
     el.innerHTML = `
       <div class="scan-result-name">❓ Código no encontrado: ${codigo}</div>
       <div class="scan-result-meta" style="margin-top:6px;">
         <a href="#" onclick="showModalNuevo('','${codigo}');return false;" style="color:var(--rojo);font-weight:600;">+ Agregar artículo nuevo</a>
       </div>`;
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
   }
-  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function showModalCantidad(art) {
+  document.getElementById('modal-titulo').textContent = '¿Cuánto querés pedir?';
+  document.getElementById('modal-body').innerHTML = `
+    <div style="background:var(--azul-light);border-radius:var(--radio);padding:12px 14px;margin-bottom:16px;">
+      <div style="font-weight:700;font-size:16px;color:var(--negro);">${art.nombre}</div>
+      <div style="font-size:13px;color:var(--gris-texto);margin-top:4px;"><span class="badge">${art.proveedor}</span>${art.codigo ? ' · ' + art.codigo : ''}</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:8px 0;">
+      <button class="qty-btn" style="width:48px;height:48px;font-size:24px;" onclick="cambiarCantModal(-1)">−</button>
+      <span id="modal-qty" style="font-size:36px;font-weight:700;min-width:60px;text-align:center;">1</span>
+      <button class="qty-btn" style="width:48px;height:48px;font-size:24px;" onclick="cambiarCantModal(1)">+</button>
+    </div>
+    <div style="font-size:12px;color:var(--gris-texto);text-align:center;margin-top:4px;">unidades de ${art.unidad}</div>`;
+  document.getElementById('modal-actions').innerHTML = `
+    <button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="confirmarCantidad()">✅ Agregar al pedido</button>`;
+  window._articuloPendiente = art;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function cambiarCantModal(delta) {
+  const el = document.getElementById('modal-qty');
+  const val = parseInt(el.textContent) + delta;
+  if (val >= 1) el.textContent = val;
+}
+
+function confirmarCantidad() {
+  const art = window._articuloPendiente;
+  const qty = parseInt(document.getElementById('modal-qty').textContent);
+  const id = String(art.id);
+  if (pedido[id]) pedido[id].qty += qty;
+  else pedido[id] = { articulo: art, qty };
+  updateBadge();
+  closeModal();
+  const el = document.getElementById('scan-result');
+  el.style.display = 'block';
+  el.className = 'scan-result';
+  el.innerHTML = `
+    <div class="scan-result-name">✅ ${art.nombre} × ${qty}</div>
+    <div class="scan-result-meta">${art.proveedor} · Agregado al pedido</div>`;
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
 // ══════════════════════════════════════
