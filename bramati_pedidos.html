@@ -639,7 +639,11 @@ function showTab(name, btn) {
 function onKeydown(e) {
   if (e.key === 'Enter') {
     const val = e.target.value.trim();
-    if (val) procesarCodigo(val);
+    if (val) {
+      procesarCodigo(val);
+      document.getElementById('usb-input').value = '';
+      document.getElementById('search-results').innerHTML = '';
+    }
   }
 }
 
@@ -676,7 +680,7 @@ function onBusqueda(q) {
         <div class="item-nombre">${a.nombre}</div>
         <div class="item-meta"><span class="badge">${a.proveedor}</span>${a.codigo ? ' · ' + a.codigo : ''}</div>
       </div>
-      <button class="btn btn-primary btn-sm" onclick='addToPedido(${JSON.stringify(a)})'>+ Pedir</button>
+      <button class="btn btn-primary btn-sm" onclick='showModalCantidad(${JSON.stringify(a).replace(/'/g,"&#39;")})'>+ Pedir</button>
     </div>`).join('') + '</div>';
 }
 
@@ -950,7 +954,7 @@ function renderCatalogo() {
         </div>
       </div>
       <div style="display:flex;gap:6px;">
-        <button class="btn btn-primary btn-sm" onclick='addToPedido(${JSON.stringify(a).replace(/'/g,"&#39;")})'>+ Pedir</button>
+        <button class="btn btn-primary btn-sm" onclick='showModalCantidad(${JSON.stringify(a).replace(/'/g,"&#39;")})'>+ Pedir</button>
         <button class="btn btn-sm" onclick='showModalEditar(${JSON.stringify(a).replace(/'/g,"&#39;")})'>✏️</button>
       </div>
     </div>`).join('') + '</div>';
