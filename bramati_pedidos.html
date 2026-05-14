@@ -613,6 +613,7 @@ async function cargarCatalogo() {
     catalogo = r.data;
     poblarFiltroProveedores();
     showToast('✅ Catálogo cargado (' + catalogo.length + ' artículos)');
+    document.getElementById('usb-input').placeholder = 'Buscar en ' + catalogo.length + ' artículos...';
   }
 }
 
@@ -652,6 +653,12 @@ function onBusqueda(q) {
   const res = document.getElementById('search-results');
   if (!q || q.length < 2) { res.innerHTML = ''; return; }
 
+  // Si el catalogo no cargo todavia
+  if (!catalogo || catalogo.length === 0) {
+    res.innerHTML = '<div style="padding:10px;font-size:13px;color:var(--gris-texto);">Cargando catálogo... esperá un momento.</div>';
+    return;
+  }
+
   // Detectar si es un código de barras (solo números, >6 chars)
   if (/^\d{6,}$/.test(q)) {
     usbTimer = setTimeout(() => {
@@ -664,7 +671,7 @@ function onBusqueda(q) {
   // Búsqueda flexible
   const qClean = q.toLowerCase().replace(/\s+/g, '');
   const found = catalogo.filter(a => {
-    const nombre = a.nombre.toLowerCase();
+    const nombre = (a.nombre || '').toLowerCase();
     const nombreClean = nombre.replace(/\s+/g, '');
     const codigo = (a.codigo || '').toLowerCase();
     return nombre.includes(q.toLowerCase()) ||
