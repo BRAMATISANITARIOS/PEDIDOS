@@ -661,11 +661,16 @@ function onBusqueda(q) {
     return;
   }
 
-  // Búsqueda por nombre
-  const found = catalogo.filter(a =>
-    a.nombre.toLowerCase().includes(q.toLowerCase()) ||
-    (a.codigo && a.codigo.includes(q))
-  ).slice(0, 8);
+  // Búsqueda flexible
+  const qClean = q.toLowerCase().replace(/\s+/g, '');
+  const found = catalogo.filter(a => {
+    const nombre = a.nombre.toLowerCase();
+    const nombreClean = nombre.replace(/\s+/g, '');
+    const codigo = (a.codigo || '').toLowerCase();
+    return nombre.includes(q.toLowerCase()) ||
+           nombreClean.includes(qClean) ||
+           codigo.includes(q.toLowerCase());
+  }).slice(0, 8);
 
   if (!found.length) {
     res.innerHTML = `<div style="padding:10px;font-size:13px;color:var(--gris-texto);">
