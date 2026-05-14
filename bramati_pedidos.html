@@ -454,6 +454,10 @@
     <span class="tab-icon">📅</span>
     <span>Historial</span>
   </button>
+  <button class="tab" onclick="showTab('estadisticas', this)">
+    <span class="tab-icon">📊</span>
+    <span>Stats</span>
+  </button>
 </div>
 
 <div class="main">
@@ -526,8 +530,27 @@
 
   <!-- ══ TAB HISTORIAL ══ -->
   <div id="tab-historial" class="screen">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <select class="form-input" id="hist-prov-filter" onchange="filtrarHistorial()" style="margin:0;flex:1;">
+        <option value="">Todos los proveedores</option>
+      </select>
+      <button class="btn btn-sm" onclick="cargarHistorial()">🔄 Actualizar</button>
+    </div>
     <div id="historial-content">
       <div class="loading"><div class="spinner"></div>Cargando historial...</div>
+    </div>
+  </div>
+
+  <!-- ══ TAB ESTADÍSTICAS ══ -->
+  <div id="tab-estadisticas" class="screen">
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <select class="form-input" id="stats-prov-filter" onchange="renderEstadisticas()" style="margin:0;flex:1;">
+        <option value="">Todos los proveedores</option>
+      </select>
+      <button class="btn btn-sm" onclick="cargarEstadisticas()">🔄 Actualizar</button>
+    </div>
+    <div id="estadisticas-content">
+      <div class="loading"><div class="spinner"></div>Cargando estadísticas...</div>
     </div>
   </div>
 
@@ -629,6 +652,7 @@ function showTab(name, btn) {
   if (name === 'pedido') renderPedido();
   if (name === 'catalogo') renderCatalogo();
   if (name === 'historial') cargarHistorial();
+  if (name === 'estadisticas') cargarEstadisticas();
   if (name === 'escanear') {
     setTimeout(() => document.getElementById('usb-input').focus(), 100);
   }
@@ -975,6 +999,8 @@ function renderCatalogo() {
 // ══════════════════════════════════════
 //  HISTORIAL
 // ══════════════════════════════════════
+let historialData = [];
+
 async function cargarHistorial() {
   const el = document.getElementById('historial-content');
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando...</div>';
@@ -983,23 +1009,108 @@ async function cargarHistorial() {
     el.innerHTML = '<div class="empty"><span class="empty-icon">📅</span>Sin pedidos registrados aún.</div>';
     return;
   }
+  historialData = r.data;
+  // Poblar filtro proveedores historial
+  const provs = [...new Set(r.data.map(i => i.Proveedor))].sort();
+  const sel = document.getElementById('hist-prov-filter');
+  while (sel.options.length > 1) sel.remove(1);
+  provs.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; sel.appendChild(o); });
+  // Poblar filtro proveedores stats
+  const sel2 = document.getElementById('stats-prov-filter');
+  while (sel2.options.length > 1) sel2.remove(1);
+  provs.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; sel2.appendChild(o); });
+  filtrarHistorial();
+}
+
+function filtrarHistorial() {
+  const filterProv = document.getElementById('hist-prov-filter').value;
+  const el = document.getElementById('historial-content');
+  let data = historialData;
+  if (filterProv) data = data.filter(i => i.Proveedor === filterProv);
+  if (!data.length) { el.innerHTML = '<div class="empty">Sin resultados.</div>'; return; }
   const byFecha = {};
-  r.data.forEach(p => {
+  data.forEach(p => {
     if (!byFecha[p.Fecha]) byFecha[p.Fecha] = [];
     byFecha[p.Fecha].push(p);
   });
   el.innerHTML = Object.entries(byFecha).reverse().map(([fecha, items]) => `
     <div class="card" style="margin-bottom:10px;">
-      <div class="card-header">📅 ${fecha}</div>
+      <div class="card-header">📅 ${fecha} <span style="margin-left:auto;font-size:11px;">${items.length} artículos</span></div>
       ${items.map(i => `
         <div class="item-row">
           <div class="item-info">
-            <div class="item-nombre">${i['Artículo']||i.Articulo}</div>
-            <div class="item-meta"><span class="badge">${i.Proveedor}</span> · x${i.Cantidad} ${i.Unidad}</div>
+            <div class="item-nombre">${i['Artículo']||i.Articulo||''}</div>
+            <div class="item-meta"><span class="badge">${i.Proveedor}</span> · x${i.Cantidad} ${i.Unidad||''}</div>
           </div>
-          <span class="badge badge-verde">${i.Estado}</span>
+          <span class="badge badge-verde">${i.Estado||''}</span>
         </div>`).join('')}
     </div>`).join('');
+}
+
+async function cargarEstadisticas() {
+  const el = document.getElementById('estadisticas-content');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Calculando...</div>';
+  if (!historialData.length) {
+    const r = await api('getPedidos');
+    if (!r || !r.ok) { el.innerHTML = '<div class="empty">Sin datos.</div>'; return; }
+    historialData = r.data;
+  }
+  renderEstadisticas();
+}
+
+function renderEstadisticas() {
+  const filterProv = document.getElementById('stats-prov-filter').value;
+  const el = document.getElementById('estadisticas-content');
+  let data = historialData;
+  if (filterProv) data = data.filter(i => i.Proveedor === filterProv);
+  if (!data.length) { el.innerHTML = '<div class="empty">Sin datos para mostrar.</div>'; return; }
+
+  // Ranking por artículo
+  const ranking = {};
+  data.forEach(i => {
+    const key = i['Artículo'] || i.Articulo || '';
+    if (!ranking[key]) ranking[key] = { nombre: key, proveedor: i.Proveedor, total: 0, veces: 0 };
+    ranking[key].total += Number(i.Cantidad) || 0;
+    ranking[key].veces++;
+  });
+  const sorted = Object.values(ranking).sort((a,b) => b.total - a.total).slice(0, 20);
+  const max = sorted[0]?.total || 1;
+
+  // Totales por proveedor
+  const byProv = {};
+  data.forEach(i => {
+    const p = i.Proveedor;
+    if (!byProv[p]) byProv[p] = { pedidos: 0, articulos: 0 };
+    byProv[p].pedidos++;
+    byProv[p].articulos += Number(i.Cantidad) || 0;
+  });
+  const provSorted = Object.entries(byProv).sort((a,b) => b[1].pedidos - a[1].pedidos);
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-header">🏆 Top 20 artículos más pedidos</div>
+      ${sorted.map((a,i) => `
+        <div style="padding:8px 14px;border-bottom:0.5px solid var(--gris-borde);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-size:13px;font-weight:500;">${i+1}. ${a.nombre}</span>
+            <span style="font-size:12px;color:var(--gris-texto);">x${a.total}</span>
+          </div>
+          <div style="background:var(--gris-borde);border-radius:4px;height:6px;">
+            <div style="background:var(--azul);border-radius:4px;height:6px;width:${Math.round(a.total/max*100)}%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--gris-texto);margin-top:2px;"><span class="badge">${a.proveedor}</span> · ${a.veces} pedido${a.veces>1?'s':''}</div>
+        </div>`).join('')}
+    </div>
+    <div class="card" style="margin-bottom:10px;">
+      <div class="card-header">🏭 Pedidos por proveedor</div>
+      ${provSorted.map(([prov, d]) => `
+        <div class="item-row">
+          <div class="item-info">
+            <div class="item-nombre">${prov}</div>
+            <div class="item-meta">${d.pedidos} líneas · ${d.articulos} unidades totales</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
 }
 
 // ══════════════════════════════════════
