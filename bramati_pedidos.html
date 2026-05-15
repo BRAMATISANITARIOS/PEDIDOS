@@ -640,9 +640,11 @@ async function cargarCatalogo() {
   if (r && r.ok) {
     catalogo = r.data;
     // Extraer proveedores únicos del catálogo
+    // Normalizar proveedores a mayúsculas
+    catalogo = catalogo.map(a => ({...a, proveedor: (a.proveedor||'').toUpperCase().trim()}));
     const provsDelCatalogo = [...new Set(catalogo.map(a => a.proveedor).filter(Boolean))].sort();
-    // Combinar con la lista fija, sin duplicados
-    const todosProveedores = [...new Set([...proveedores, ...provsDelCatalogo])].sort();
+    // Combinar con lista fija en mayúsculas, sin duplicados
+    const todosProveedores = [...new Set([...proveedores.map(p => p.toUpperCase()), ...provsDelCatalogo])].sort();
     proveedores = todosProveedores;
     poblarFiltroProveedores();
     showToast('✅ Catálogo cargado (' + catalogo.length + ' artículos)');
@@ -1171,7 +1173,7 @@ function toggleNuevoProv(val) {
 function getProveedorSeleccionado() {
   const sel = document.getElementById('f-prov');
   if (sel.value === '__nuevo__') {
-    const nuevo = document.getElementById('f-prov-nuevo').value.trim();
+    const nuevo = document.getElementById('f-prov-nuevo').value.trim().toUpperCase();
     if (nuevo && !proveedores.includes(nuevo)) {
       proveedores.push(nuevo);
       proveedores.sort();
