@@ -639,6 +639,11 @@ async function cargarCatalogo() {
   const r = await api('getCatalogo');
   if (r && r.ok) {
     catalogo = r.data;
+    // Extraer proveedores únicos del catálogo
+    const provsDelCatalogo = [...new Set(catalogo.map(a => a.proveedor).filter(Boolean))].sort();
+    // Combinar con la lista fija, sin duplicados
+    const todosProveedores = [...new Set([...proveedores, ...provsDelCatalogo])].sort();
+    proveedores = todosProveedores;
     poblarFiltroProveedores();
     showToast('✅ Catálogo cargado (' + catalogo.length + ' artículos)');
     document.getElementById('usb-input').placeholder = 'Buscar en ' + catalogo.length + ' artículos...';
@@ -1150,11 +1155,30 @@ function formArticulo(a) {
     <label class="form-label">Código de barras</label>
     <input class="form-input" id="f-codigo" value="${a.codigo||''}" placeholder="Dejar vacío si no tiene">
     <label class="form-label">Proveedor *</label>
-    <select class="form-input" id="f-prov">${opts}</select>
+    <select class="form-input" id="f-prov" onchange="toggleNuevoProv(this.value)">${opts}<option value="__nuevo__">+ Agregar proveedor nuevo...</option></select>
+    <input class="form-input" id="f-prov-nuevo" placeholder="Nombre del proveedor nuevo" style="display:none;margin-top:-4px;">
     <label class="form-label">Unidad</label>
     <select class="form-input" id="f-unidad">${uopts}</select>
     <label class="form-label">Stock mínimo</label>
     <input class="form-input" id="f-stock" type="number" value="${a.stockMinimo||0}" min="0">`;
+}
+
+function toggleNuevoProv(val) {
+  const el = document.getElementById('f-prov-nuevo');
+  if (el) el.style.display = val === '__nuevo__' ? 'block' : 'none';
+}
+
+function getProveedorSeleccionado() {
+  const sel = document.getElementById('f-prov');
+  if (sel.value === '__nuevo__') {
+    const nuevo = document.getElementById('f-prov-nuevo').value.trim();
+    if (nuevo && !proveedores.includes(nuevo)) {
+      proveedores.push(nuevo);
+      proveedores.sort();
+    }
+    return nuevo;
+  }
+  return sel.value;
 }
 
 async function guardarNuevo() {
@@ -1163,7 +1187,7 @@ async function guardarNuevo() {
   const art = {
     nombre,
     codigo: document.getElementById('f-codigo').value.trim(),
-    proveedor: document.getElementById('f-prov').value,
+    proveedor: getProveedorSeleccionado(),
     unidad: document.getElementById('f-unidad').value,
     stockMinimo: parseInt(document.getElementById('f-stock').value) || 0
   };
@@ -1185,7 +1209,7 @@ async function guardarEdicion() {
     id,
     nombre,
     codigo: document.getElementById('f-codigo').value.trim(),
-    proveedor: document.getElementById('f-prov').value,
+    proveedor: getProveedorSeleccionado(),
     unidad: document.getElementById('f-unidad').value,
     stockMinimo: parseInt(document.getElementById('f-stock').value) || 0
   };
