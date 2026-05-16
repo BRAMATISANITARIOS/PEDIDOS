@@ -793,13 +793,18 @@ function confirmarCantidad() {
   updateBadge();
   guardarPedidoLocal();
   closeModal();
+  // Limpiar campo y enfocar para el siguiente escaneo
+  const input = document.getElementById('usb-input');
+  input.value = '';
+  document.getElementById('search-results').innerHTML = '';
+  setTimeout(() => { input.focus(); }, 100);
   const el = document.getElementById('scan-result');
   el.style.display = 'block';
   el.className = 'scan-result';
   el.innerHTML = `
     <div class="scan-result-name">✅ ${art.nombre} × ${qty}</div>
     <div class="scan-result-meta">${art.proveedor} · Agregado al pedido</div>`;
-  setTimeout(() => { el.style.display = 'none'; }, 3000);
+  setTimeout(() => { el.style.display = 'none'; }, 2000);
 }
 
 // ══════════════════════════════════════
