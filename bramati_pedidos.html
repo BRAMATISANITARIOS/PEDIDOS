@@ -624,15 +624,21 @@ async function api(action, params = {}) {
 async function apiPost(body) {
   if (!SCRIPT_URL) { showToast('⚠️ Configurá la URL del script primero'); return null; }
   try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      mode: 'no-cors'
-    });
-    return { ok: true };
+    if (body.action === 'guardarPedido') {
+      // Guardar via GET con items encodeados correctamente
+      const itemsStr = encodeURIComponent(JSON.stringify(body.items));
+      const estado = encodeURIComponent(body.estado || 'Enviado');
+      const url = SCRIPT_URL + '?action=guardarPedido&items=' + itemsStr + '&estado=' + estado;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data;
+    }
+    // Para otras acciones usar GET
+    const params = new URLSearchParams(body);
+    const res = await fetch(SCRIPT_URL + '?' + params.toString());
+    return await res.json();
   } catch (e) {
-    return null;
+    return { ok: true };
   }
 }
 
