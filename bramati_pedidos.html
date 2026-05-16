@@ -596,6 +596,7 @@ window.onload = () => {
     cargarCatalogo();
   }
   poblarFiltroProveedores();
+  cargarPedidoLocal();
 };
 
 function guardarConfig() {
@@ -784,6 +785,7 @@ function confirmarCantidad() {
   if (pedido[id]) pedido[id].qty += qty;
   else pedido[id] = { articulo: art, qty };
   updateBadge();
+  guardarPedidoLocal();
   closeModal();
   const el = document.getElementById('scan-result');
   el.style.display = 'block';
@@ -850,9 +852,24 @@ function addToPedido(art) {
   if (pedido[id]) pedido[id].qty++;
   else pedido[id] = { articulo: art, qty: 1 };
   updateBadge();
+  guardarPedidoLocal();
   if (!document.getElementById('scan-result').style.display || document.getElementById('scan-result').style.display === 'none') {
     showToast('✅ ' + art.nombre);
   }
+}
+
+function guardarPedidoLocal() {
+  try { localStorage.setItem('bs_pedido', JSON.stringify(pedido)); } catch(e) {}
+}
+
+function cargarPedidoLocal() {
+  try {
+    const saved = localStorage.getItem('bs_pedido');
+    if (saved) {
+      pedido = JSON.parse(saved);
+      updateBadge();
+    }
+  } catch(e) {}
 }
 
 function updateBadge() {
@@ -908,8 +925,11 @@ function renderPedido() {
     });
     html += `<div class="msg-box">${msg}</div>
       <div style="padding:10px 14px;">
-        <button class="btn btn-verde btn-full" onclick="copiarMensaje('${prov}')">
-          💬 Copiar mensaje WhatsApp para ${prov}
+        <button class="btn btn-verde btn-full" style="margin-bottom:6px;" onclick="copiarMensaje('${prov}')">
+          💬 Copiar mensaje WhatsApp
+        </button>
+        <button class="btn btn-primary btn-full" onclick="enviarYCerrarPedido('${prov}')">
+          ✅ Enviar y cerrar pedido de ${prov}
         </button>
       </div>
     </div>`;
@@ -928,6 +948,7 @@ function cambiarQty(id, delta) {
   pedido[id].qty += delta;
   if (pedido[id].qty <= 0) delete pedido[id];
   updateBadge();
+  guardarPedidoLocal();
   renderPedido();
 }
 
@@ -959,10 +980,37 @@ async function guardarPedido() {
   }
 }
 
+async function enviarYCerrarPedido(prov) {
+  // Copiar mensaje al portapapeles
+  const items = Object.values(pedido).filter(i => i.articulo.proveedor === prov);
+  const msg = generarMensaje(prov, items);
+  try { await navigator.clipboard.writeText(msg); } catch(e) {}
+  
+  // Guardar en historial
+  const itemsData = items.map(i => ({
+    proveedor: i.articulo.proveedor,
+    nombre: i.articulo.nombre,
+    codigo: i.articulo.codigo,
+    qty: i.qty,
+    unidad: i.articulo.unidad
+  }));
+  await apiPost({ action: 'guardarPedido', items: itemsData, estado: 'Enviado' });
+  
+  // Eliminar artículos de ese proveedor del pedido
+  Object.keys(pedido).forEach(id => {
+    if (pedido[id].articulo.proveedor === prov) delete pedido[id];
+  });
+  updateBadge();
+  guardarPedidoLocal();
+  renderPedido();
+  showToast('✅ Pedido de ' + prov + ' enviado y cerrado. Mensaje copiado!');
+}
+
 function limpiarPedido() {
   if (!confirm('¿Limpiar el pedido actual?')) return;
   pedido = {};
   updateBadge();
+  try { localStorage.removeItem('bs_pedido'); } catch(e) {}
   renderPedido();
 }
 
